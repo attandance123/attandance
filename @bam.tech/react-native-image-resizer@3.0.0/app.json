@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Attandance",
-    "slug": "Attandance",
+    "name": "react-native-image-resizer@3.0.0",
+    "slug": "react-native-image-resizer@3.0.0",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,24 +15,16 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.attandace2.Attandance"
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      },
-      "package": "com.attandace2.Attandance",
-      "versionCode": 1
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "f79d6be7-95d8-41a4-ae8b-1adf675b790b"
-      }
     }
   }
 }
