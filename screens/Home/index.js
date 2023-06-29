@@ -1,11 +1,12 @@
-import { StyleSheet,Alert, Text, TouchableOpacity,Button,Image, View, TextInput } from 'react-native';
+import { StyleSheet,Alert, Text, TouchableOpacity,Button,Image, View, TextInput, Linking } from 'react-native';
 import { useEffect ,useState} from 'react';
 import Camera from '../components/Camera';
 import { useNavigation } from '@react-navigation/native';
 import {fxn,db,storageRef} from '../../firebaseConfig'
-import { collection,addDoc ,doc,getDoc,updateDoc} from 'firebase/firestore';
+import { collection,addDoc ,doc,getDoc,updateDoc, arrayUnion,serverTimestamp,increment} from 'firebase/firestore';
 import { uploadBytes,getDownloadURL } from 'firebase/storage';
 import { MatchFace } from '../../endpoints';
+import * as Location from 'expo-location';
 const id = "pfqDEgH16D3F2aaLEVSx"
 const Home=()=>{
     const [showCamera,setShowSamera] = useState(false)
@@ -16,6 +17,28 @@ const Home=()=>{
     const [attandance ,setAttandace] = useState(0)
     const [loading,setLoading] = useState()
     const [imageUrl2,setImgUrl2] = useState('')
+    const [location, setLocation] = useState(null);
+    const [errorMsg, setErrorMsg] = useState(null);
+    useEffect(() => {
+        GetLocation()
+      }, []);
+    const GetLocation= async ()=>{
+ 
+        let { status ,canAskAgain} = await Location.requestForegroundPermissionsAsync();
+        Location.enableNetworkProviderAsync()
+        if (status !== 'granted') {
+          setErrorMsg('Permission to access location was denied');
+          Linking.openSettings()
+          return;
+        }
+  
+        let location = await Location.getCurrentPositionAsync({
+            accuracy:Location.Accuracy.Highest
+        });
+        setLocation(location);
+      
+    }  
+    const date = new Date();
     const getDownloadurl=async(filename)=>{
         console.log(filename)
         await getDownloadURL(storageRef(filename)).then((url)=>{
@@ -65,20 +88,28 @@ const Home=()=>{
                 Alert.alert("Face Matched")
                 const Ref = doc(db, "users", studentId);
                 await updateDoc(Ref, {
-                    Attandance: attandance+1
+                    Attandance: increment(1),
+                    array:arrayUnion({Date:date.toLocaleString("en-US", {timeZone: 'Asia/Kolkata'}),time:Date.now(),location:location}),
+                    
+
                   });
+                  setLoading(false)
              }else{
                 Alert.alert("Face Not Matched")
+                setLoading(false)
              }
             })
             }).catch((err)=>{
                 console.log('Failed a blob or file!',err);
+                setLoading(false)
             })
             setPhoto('')
+            setLoading(false)
         }else{
             Alert.alert('please Click a picture')
+            setLoading(false)
         }
-        setLoading(false)
+        
     }
     useEffect(()=>{
         if(photo){
@@ -87,13 +118,18 @@ const Home=()=>{
         }
     },[photo])
     const AddAttandance=async()=>{
-        ///Change true for student id
-        if(studentId){
-            setLoading(true)
-            await GetStudentDetails()
-            
+        if(location)
+        {
+            if(studentId){
+                setLoading(true)
+                await GetStudentDetails()
+                
+            }else{
+                Alert.alert("Please Enter Id")
+            }
         }else{
-            Alert.alert("Please Enter Id")
+           // Alert.alert(errorMsg)
+            GetLocation()
         }
     }
     return(

@@ -1,9 +1,11 @@
-import { StyleSheet, Text, TouchableOpacity,Button,Image, View, TextInput, Alert } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity,Button,Image, View, TextInput, Alert, ScrollView, Linking } from 'react-native';
 import { useEffect ,useState} from 'react';
 import Camera from '../components/Camera';
 import {fxn,db,storageRef} from '../../firebaseConfig'
 import { collection,addDoc,setDoc,doc,getDoc} from 'firebase/firestore';
 import { uploadBytes,getDownloadURL } from 'firebase/storage';
+import { getDefaultEmulatorHostnameAndPort } from '@firebase/util';
+import { Link } from '@react-navigation/native';
 
 //const id = "pfqDEgH16D3F2aaLEVSx"
 const AddStudent=()=>{
@@ -14,6 +16,10 @@ const AddStudent=()=>{
     const [name,setName] = useState('')
     const [attn,setAttn] = useState()
     const [studentId,setStudentId] = useState('')
+    const [islogedIn,setLogin]= useState(false)
+    const [adminId,setadminId] = useState('')
+    const [attnDetails,setDetails] = useState([])
+    const [adminpass,setadminpass] = useState('')
     useEffect(()=>{
         if(photo){
             setShowSamera(!showCamera)
@@ -51,6 +57,7 @@ const AddStudent=()=>{
             Name: name,
             ImageName: photo?.uri.replace(/^.*[\\\/]/, ''),
             Attandance:0,
+            array:[]
           }).then((data)=>{
            // Alert.alert('Your Student Id',data)
             console.log("datakartik",data)
@@ -73,6 +80,8 @@ const AddStudent=()=>{
             if (docSnap.exists()) {
             console.log("Document data:", docSnap.data().Attandance);
                 setAttn(docSnap.data().Attandance)
+                console.log(docSnap.data().array)
+                setDetails(docSnap.data().array)
             } else {
             // docSnap.data() will be undefined in this case
             Alert.alert("No such document!");
@@ -82,10 +91,55 @@ const AddStudent=()=>{
         }
 
     }
-    return(
+    const Login=async()=>{
+        setLoading(true)
+        if(adminId && adminpass){
+            const docRef = doc(db, "Admin", "login");
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                console.log("Document data:", docSnap.data().Attandance);
+                    if(docSnap.data().id == adminId && docSnap.data().password == adminpass){ 
+                        setLogin(true)
+                    }else{
+                        Alert.alert("Wrong Credentials");
+                    }
+                } else {
+                // docSnap.data() will be undefined in this case
+                Alert.alert("No such document!");
+                }
+        }else{
+            Alert.alert("Enter details")
+        }
+        setLoading(false)
+    }
+    const maps=(latitude,longitude)=>{
+        console.log(latitude,longitude)
+        const url = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
 
-        <View style={[styles.Parent,!showCamera&&{  alignItems:'center',
-        backgroundColor:"#FFF"}]}>
+        Linking.openURL(url)
+          .catch(err => console.error('An error occurred', err));
+    }
+    return(
+        !islogedIn?
+        <View style={{flex:1,backgroundColor:'#fff',alignItems:'center'}}>
+            <TextInput
+                placeholder='Enter Admin id'
+                style={styles.Input}
+                value={adminId}
+                onChangeText={(txt)=>setadminId(txt)}
+            />
+             <TextInput
+                placeholder='Enter Admin pass'
+                style={styles.Input}
+                value={adminpass}
+                onChangeText={(txt)=>setadminpass(txt)}
+            />
+             <TouchableOpacity style={[styles.Button,loading&&{backgroundColor:"#707070"}]} disabled={loading}  onPress={()=>Login()}>
+                <Text style={[ {color:"#fff"},]}>Login</Text>
+            </TouchableOpacity>
+        </View>
+        :
+        <View style={[styles.Parent,!showCamera&&{  alignItems:'center',backgroundColor:"#FFF"}]}>
             {!showCamera?
             <>
              <TextInput
@@ -111,6 +165,16 @@ const AddStudent=()=>{
                 <Text style={{color:"#fff"}}>Check Attandance</Text>
             </TouchableOpacity>
             <Text>Attandance- {attn}</Text>
+            <ScrollView style={{flex:1,width:'100%'}} contentContainerStyle={{justifyContent:'center',alignItems:'center'}}>
+                
+                {attnDetails?.map((item,index)=>{
+                   return <View key={index} style={{marginVertical:10}}>      
+                    <Text>Date: {item.Date}</Text>
+                    <Text style={{color:"blue"}} onPress={()=>maps(item.location.coords?.latitude,item.location.coords?.longitude)}>Location</Text>
+                    </View>
+
+                })}
+            </ScrollView>
             </>:<Camera setPhoto={setPhoto}/>}
         </View>
     )
