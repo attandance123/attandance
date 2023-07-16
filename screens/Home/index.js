@@ -8,6 +8,27 @@ import { uploadBytes,getDownloadURL } from 'firebase/storage';
 import { MatchFace } from '../../endpoints';
 import * as Location from 'expo-location';
 const id = "pfqDEgH16D3F2aaLEVSx"
+function calcCrow(lat1, lon1, lat2, lon2) 
+{
+    console.log(lat1,lon1,lat2,lon2)
+  var R = 6371; // km
+  var dLat = toRad(lat2-lat1);
+  var dLon = toRad(lon2-lon1);
+  var lat1 = toRad(lat1);
+  var lat2 = toRad(lat2);
+
+  var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1) * Math.cos(lat2); 
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+  var d = R * c;
+  return d;
+}
+
+// Converts numeric degrees to radians
+function toRad(Value) 
+{
+    return Value * Math.PI / 180;
+}
 const Home=()=>{
     const [showCamera,setShowSamera] = useState(false)
     const [photo,setPhoto] = useState()
@@ -16,11 +37,15 @@ const Home=()=>{
     const [imageUrl,setImgUrl] = useState('')
     const [attandance ,setAttandace] = useState(0)
     const [loading,setLoading] = useState()
+    const [loading2,setLoading2] = useState()
     const [imageUrl2,setImgUrl2] = useState('')
     const [location, setLocation] = useState(null);
     const [errorMsg, setErrorMsg] = useState(null);
+    const [logedIn,setLoggedIn] = useState(null)
+    const [centerLocation,setCenterLocation] = useState({lat:1,lon:1})
     useEffect(() => {
         GetLocation()
+        getLocation()
       }, []);
     const GetLocation= async ()=>{
  
@@ -57,10 +82,11 @@ const Home=()=>{
     const GetStudentDetails=async()=>{
         const docRef = doc(db, "users", studentId);
         const docSnap = await getDoc(docRef);
-
+        
         if (docSnap.exists()) {
         console.log("Document data:", docSnap.data().ImageName);
             setAttandace(docSnap.data().Attandance)
+            setLoggedIn(docSnap.data().isLoggedIn)
             await getDownloadurl(docSnap.data().ImageName)
 
         } else {
@@ -70,6 +96,20 @@ const Home=()=>{
         }
 
     }
+    const getLocation=async()=>{
+        
+            const docRef = doc(db, "Admin", "location");
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                console.log("Document data:", docSnap.data().lat);
+                setCenterLocation({
+                    lat:docSnap.data().lat,
+                    lon:docSnap.data().lon,
+                })
+                } else {
+                    Alert.alert("No such document!");
+                }
+    }
     const uploadImage = async (imgurl2)=>{
       
         if(photo){
@@ -78,6 +118,7 @@ const Home=()=>{
         var filename = photo?.uri.replace(/^.*[\\\/]/, '')
         //console.log(file)
         uploadBytes(storageRef(filename), blob).then(async (snapshot) => {
+            setLoading2(true)
             console.log('Uploaded a blob or file!',snapshot);
             Alert.alert("Uploaded File")
             await getDownloadURL(storageRef(filename)).then(async (url)=>{
@@ -87,12 +128,15 @@ const Home=()=>{
              if(await MatchFace(url,imgurl2)){
                 Alert.alert("Face Matched")
                 const Ref = doc(db, "users", studentId);
-                await updateDoc(Ref, {
-                    Attandance: increment(1),
-                    array:arrayUnion({Date:date.toLocaleString("en-US", {timeZone: 'Asia/Kolkata'}),time:Date.now(),location:location}),
-                    
+                
+                    await updateDoc(Ref, {
+                        Attandance: increment(1),
+                        array:arrayUnion({Date:date.toLocaleString("en-US", {timeZone: 'Asia/Kolkata'}),time:Date.now(),location:location}),
+                        isLoggedIn:logedIn?false:true
 
-                  });
+                    });
+                    setLoggedIn(!logedIn)
+                    setLoading2(false)
                   setLoading(false)
              }else{
                 Alert.alert("Face Not Matched")
@@ -114,23 +158,38 @@ const Home=()=>{
     useEffect(()=>{
         if(photo){
             setShowSamera(!showCamera)
+            AddAttandance()
            // uploadImage()
         }
     },[photo])
     const AddAttandance=async()=>{
-        if(location)
+        //console.log(location)
+       // console.log("distance",)
+       
+        if(location )
         {
-            if(studentId){
-                setLoading(true)
-                await GetStudentDetails()
-                
+            if(centerLocation){
+                if(calcCrow(location.coords.latitude,location.coords.longitude,centerLocation.lat,centerLocation.lon)<=0.8){
+                    if(studentId){
+                        setLoading(true)
+                        await GetStudentDetails()
+                        
+                    }else{
+                        Alert.alert("Please Enter Id")
+                    }
+                }else{
+                    Alert.alert("Can't Mark attandance your location is more than 500 m" + calcCrow(location.coords.latitude,location.coords.longitude,centerLocation.lat,centerLocation.lon) +'km')
+                }
             }else{
-                Alert.alert("Please Enter Id")
+                getLocation()
+                Alert.alert("Failed to get center Location")
             }
         }else{
            // Alert.alert(errorMsg)
+            Alert.alert("Failed to get your Location")
             GetLocation()
         }
+        setPhoto('')
     }
     return(
        
@@ -151,9 +210,11 @@ const Home=()=>{
             <TouchableOpacity style={styles.Button} onPress={()=>setShowSamera(true)}>
                 <Text style={{color:"#fff"}}>Open Camera</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.Button,loading&&{backgroundColor:"#707070"}]} disabled={loading} onPress={()=>AddAttandance()}>
+            {logedIn !==null && <Text style={{marginTop:'10%',fontSize:20}}>{!logedIn?"Logged In":"Logged Out"}</Text>}
+            {loading || loading2 && <Text style={{marginTop:'10%',fontSize:20}}>Loading</Text>}
+            {/* <TouchableOpacity style={[styles.Button,loading&&{backgroundColor:"#707070"}]} disabled={loading} onPress={()=>AddAttandance()}>
                 <Text style={{color:"#fff"}}>Add Attandance</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
             </>
            : <Camera setPhoto={setPhoto}/>}
         </View>

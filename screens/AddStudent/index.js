@@ -57,7 +57,8 @@ const AddStudent=()=>{
             Name: name,
             ImageName: photo?.uri.replace(/^.*[\\\/]/, ''),
             Attandance:0,
-            array:[]
+            array:[],
+            isLoggedIn:false,
           }).then((data)=>{
            // Alert.alert('Your Student Id',data)
             console.log("datakartik",data)
